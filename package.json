@@ -1,0 +1,30 @@
+{
+  "name": "nodeman",
+  "version": "0.0.1",
+  "description": "a simple multiplayer hangman browser game, written in nodejs using socket.io, presented as a nodejs lesson for beginners or intermediates.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon server.js -e scss,js,json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/qrakhen/nodeman.git"
+  },
+  "keywords": [
+    "game",
+    "socket.io",
+    "hangman"
+  ],
+  "author": "Sygade Studios <dave@sygade.eu> (http://sygade.eu)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/qrakhen/nodeman/issues"
+  },
+  "homepage": "https://github.com/qrakhen/nodeman#readme",
+  "dependencies": {
+    "express": "^4.15.4",
+    "socket.io": "^2.0.3",
+    "sygtools": "^0.2.7"
+  }
+}

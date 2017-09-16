@@ -25,6 +25,7 @@
   "dependencies": {
     "express": "^4.15.4",
     "socket.io": "^2.0.3",
-    "sygtools": "^0.2.7"
+    "sygtools": "^0.2.7",
+    "uuid": "^3.1.0"
   }
 }

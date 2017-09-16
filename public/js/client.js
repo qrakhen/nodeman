@@ -34,8 +34,7 @@ function Game() {
     }.bind(this);
 
     this.createRoom = function() {
-        $('input.action[action="createRoom"]').addClass('disabled');
-        $('input[key="inviteLink"]').removeClass('hidden');
+        this.actions.createRoom.trigger();
     }.bind(this);
 
     this.initActions = function() {
@@ -50,10 +49,16 @@ function Game() {
     };
 
     this.registerEvents = function() {
-        this.actions.enter = new ClientAction('enter', function(data) {
-            this.playerName = name;
-            this.store('playerName', name);
+        this.actions.enter = new SocketAction('enter', function(data) {
+            this.playerName = data.playerName;
+            this.store('playerName', data.playerName);
             this.setView('menu');
+        }.bind(this));
+        this.actions.createRoom = new SocketAction('createRoom', function(data) {
+            $('input.action[action="createRoom"]').addClass('disabled');
+            $('input[key="inviteLink"]').removeClass('hidden');
+            var url = window.location.origin + '/join/' + data.roomId;
+            this.setInputValue('inviteLink', 'menu', url);
         }.bind(this));
     }.bind(this);
 
@@ -78,31 +83,28 @@ window.init = function() {
 };
 
 /***
- * ClientAction class.
+ * SocketAction class.
  * Used to trigger an action for a given event and to define a callback if the socket receives that event.
- * Use ClientAction.trigger(data); To trigger this event and send data to the connected socket.
+ * Use SocketAction.trigger(data); To trigger this event and send data to the connected socket.
  * @param subject The subject string
  * @param receiver The receiving callback, will be called as receiver(response) [only if success == true!];
  **/
-window.ClientAction = function(subject, receiver) {
+window.SocketAction = function(subject, receiver) {
 	var action = {
 		subject: subject,
 		count: { in: 0, out: 0 },
 		trigger: function(data) {
-			console.log('ClientAction.trigger(' + subject + ')', data);
+			console.log('SocketAction.trigger(' + subject + ')', data);
 			this.count.out++;
 			socket.emit(subject, data);
 		},
 		register: function(receiver) {
-			var self = this;
 			socket.on(subject, function(response) {
-				console.log('ClientAction.received(' + subject + ')', response);
-				self.count.in++;
-				if (response.success)
-					receiver(response.data);
-				else
-					Materialize.toast("Error: " + response.message, 4200);
-			});
+				console.log('SocketAction.received(' + subject + ')', response);
+				this.count.in++;
+				if (response.success) receiver(response.data);
+				else Materialize.toast(this.subject + ', error: ' + response.message, 4200);
+			}.bind(this));
 		}
 	};
 	action.register(receiver);

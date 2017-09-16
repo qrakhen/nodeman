@@ -22,6 +22,7 @@ function Game() {
     this.setPlayerName = function() {
         var name = this.getInputValue('name', 'enter');
         if (name && name.length > 0) game.playerName = name;
+        this.setStorage('playerName', name);
         this.setView('menu');
     }.bind(this);
 
@@ -34,6 +35,14 @@ function Game() {
                 else console.error($(e).attr('action') + '() is not a game function.');
             });
         });
+    };
+
+    this.getStore = function(key) {
+        return window.localStorage.getItem(key);
+    };
+
+    this.setStore = function(key, value) {
+        window.localStorage.setItem(key, value);
     };
 };
 

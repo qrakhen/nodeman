@@ -49,9 +49,6 @@ function Game() {
     };
 
     this.registerEvents = function() {
-        this.actions.reconnect = new SocketAction('attemptReconnect', function(data) {
-            
-        });
         this.actions.enter = new SocketAction('enter', function(data) {
             this.playerName = data.playerName;
             this.store('playerName', data.playerName);
@@ -82,13 +79,17 @@ window.init = function() {
     window.game.registerEvents();
     window.game.initActions();
     window.socket.on('connect', function() {
-        // try to reconnect if we have a previous authToken stored
+        // try to revive connection if we have a previous authToken stored
+        // this will have one of the following results:
+        // a) revive the client and continue where it left, i.e. in a game or lobby room
+        // b) resume the session, which does nothing at the moment because we have no accounts or anything
+        // c) fail, when there was nothing to resume or revive.
         var authToken = window.game.load('authToken');
         if (authToken) setTimeout(function() {
-            window.socket.emit('attemptReconnect', { token: authToken });
-        }, 500);
+            window.socket.emit('revive', { token: authToken });
+        }, 500); // 500ms timeout so we can be sure the server has the corresponding listening callback defined at this point
 
-        // set the name input value to the stored value to be extra user-friendly
+        // set the name input value to the stored playerName to be extra user-friendly
         var storedName = window.game.load('playerName');
         if (storedName) window.game.setInputValue('playerName', 'enter', storedName);
     });

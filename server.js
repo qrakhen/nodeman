@@ -5,6 +5,17 @@
  * npm install -s sygtools
  */
 
+// config object, should later be moved into its own .json file
+const config = {
+	socket: {
+		keepAlive: 60 * 10, // client will be kept alive 10 minutes after a disconnect (to be able to reconnect to rooms etc)
+		sessionExpire: 60 * 60 * 2 // 2 hours without activity cause the session to expire (logout)
+	},
+	server: {
+		port: 24242
+	}
+};
+
 // This "requires" all dependencies we need for out server here
 const express     = require('express');
 const app         = express();
@@ -19,10 +30,14 @@ app.use(express.static(__dirname + '/public'));
 // We create a new List for the sockets (it's one of my own classes :3 very handy)
 const clients = new List();
 
+function now() {
+	return new Date().getTime();
+}
+
 // ...and now we listen for incoming connections.
 // io.on "listens" to a certain event, in this case "connection",
 // which then calls our callback function that has the just connected socket as parameter.
-http.listen(24242, () => {
+http.listen(config.server.port, () => {
 
     // with app.get('/', ...) we listen to the root path of our page,
     // which means that this is called as soon as a HTTP client sends a GET request to our server.
@@ -44,7 +59,7 @@ http.listen(24242, () => {
         client.registerActions();
         clients.add(client);
         socket.on('disconnect', () => {
-            //clients.remove(client);
+			client.lastAction = now();
             console.log('client disconnected (' + client.uuid + ')');
         });
         console.log('new client connected (' + client.uuid + ')');
@@ -89,6 +104,7 @@ function Client(socket) {
     this.playerName = '';
     this.currentRoom = null;
     this.enteredAt = 0;
+	this.lastAction = 0;
 
     this.socket.returnSuccess = function(e, data) {
         this.emit(e, new Response(true, data));
@@ -99,20 +115,22 @@ function Client(socket) {
     };
 
     this.registerActions = () => {
-        this.actions.reconnect = new SocketAction('attemptReconnect', this.socket, (data) => {
+        this.actions.revive = new SocketAction('revive', this.socket, (data) => {
             var token = data.token;
             var __client = clients.findOne('token', token);
             if (__client) {
-                __client.socket = this.socket;
-                this.socket = null;
-                clients.remove(this);
-                __client.socket.returnSuccess('enter', {
-                    playerName: __client.playerName,
-                    enteredAt: __client.enteredAt,
-                    uuid: __client.uuid,
-                    token: __client.token
-                });
-            } else this.socket.returnFailure('attemptReconnect', 'no corresponding client found for given token');
+				if (now() - __client.lastAction < config.socket.keepAlive) {
+	                __client.socket = this.socket;
+	                this.socket = null;
+	                clients.remove(this);
+	                __client.socket.returnSuccess('enter', {
+	                    playerName: __client.playerName,
+	                    enteredAt: __client.enteredAt,
+	                    uuid: __client.uuid,
+	                    token: __client.token
+	                });
+				} else this.socket.returnFailure('revive', 'given socket died because to keep alive limit was passed')
+            } else this.socket.returnFailure('revive', 'no corresponding client found for given token');
         });
         this.actions.enter = new SocketAction('enter', this.socket, (data) => {
             var name = data.playerName;

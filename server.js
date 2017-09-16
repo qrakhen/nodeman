@@ -43,12 +43,8 @@ http.listen(24242, () => {
         var client = new Client(socket);
         client.registerActions();
         clients.add(client);
-        socket.emit('welcome', {
-            uuid: client.uuid,
-            token: client.token
-        });
         socket.on('disconnect', () => {
-            clients.remove(client);
+            //clients.remove(client);
             console.log('client disconnected (' + client.uuid + ')');
         });
         console.log('new client connected (' + client.uuid + ')');
@@ -103,15 +99,20 @@ function Client(socket) {
     };
 
     this.registerActions = () => {
-        this.actions.reconnect = new SocketAction('reconnect', this.socket, (data) => {
+        this.actions.reconnect = new SocketAction('attemptReconnect', this.socket, (data) => {
             var token = data.token;
             var __client = clients.findOne('token', token);
             if (__client) {
                 __client.socket = this.socket;
                 this.socket = null;
                 clients.remove(this);
-                __client.socket.returnSuccess('reconnect');
-            } else this.socket.returnFailure('reconnect', 'no corresponding client found for given token');
+                __client.socket.returnSuccess('enter', {
+                    playerName: __client.playerName,
+                    enteredAt: __client.enteredAt,
+                    uuid: __client.uuid,
+                    token: __client.token
+                });
+            } else this.socket.returnFailure('attemptReconnect', 'no corresponding client found for given token');
         });
         this.actions.enter = new SocketAction('enter', this.socket, (data) => {
             var name = data.playerName;
@@ -121,7 +122,9 @@ function Client(socket) {
                 console.log('player ' + name + ' just entered!');
                 this.socket.returnSuccess('enter', {
                     playerName: this.playerName,
-                    enteredAt: this.enteredAt
+                    enteredAt: this.enteredAt,
+                    uuid: this.uuid,
+                    token: this.token
                 });
             } else this.socket.returnFailure('enter', 'invalid playerName provided');
         });

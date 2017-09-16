@@ -49,19 +49,14 @@ function Game() {
     };
 
     this.registerEvents = function() {
-        // move to init because timing
-        this.actions.welcome = new SocketAction('welcome', function(data) {
-            var token = window.game.load('token');
-            if (token && token != data.token) {
-                window.socket.emit('reconnect', { token: token });
-            } else {
-                this.store('uuid', data.uuid);
-                this.store('token', data.token);
-            }
-        }.bind(this));
+        this.actions.reconnect = new SocketAction('attemptReconnect', function(data) {
+            
+        });
         this.actions.enter = new SocketAction('enter', function(data) {
             this.playerName = data.playerName;
             this.store('playerName', data.playerName);
+            this.store('clientUuid', data.uuid);
+            this.store('authToken', data.token);
             this.setView('menu');
         }.bind(this));
         this.actions.createRoom = new SocketAction('createRoom', function(data) {
@@ -86,10 +81,17 @@ window.init = function() {
     window.game = new Game();
     window.game.registerEvents();
     window.game.initActions();
-    var storedName = window.game.load('playerName');
-    if (storedName) {
-        window.game.setInputValue('playerName', 'enter', storedName);
-    }
+    window.socket.on('connect', function() {
+        // try to reconnect if we have a previous authToken stored
+        var authToken = window.game.load('authToken');
+        if (authToken) setTimeout(function() {
+            window.socket.emit('attemptReconnect', { token: authToken });
+        }, 500);
+
+        // set the name input value to the stored value to be extra user-friendly
+        var storedName = window.game.load('playerName');
+        if (storedName) window.game.setInputValue('playerName', 'enter', storedName);
+    });
 };
 
 /***

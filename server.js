@@ -53,13 +53,6 @@ http.listen(config.server.port, () => {
 		response.sendfile('./public/view/main.html');
 	});
 
-    // this listens to clients who want to join a given room,
-    // providing the roomId directly within the url
-    /*app.get('/img/:img', (query, response) => {
-        console.log('img get request: ' + query.params.img);
-		response.sendfile('./public/img/' + query.params.img);
-	});*/
-
     // this is called as soon as a new socket (socket.io) connects.
     // here we create our client and add it to a list of all connected clients.
     io.on('connection', (socket) => {
@@ -67,8 +60,7 @@ http.listen(config.server.port, () => {
         client.registerActions();
         clients.add(client);
         socket.on('disconnect', () => {
-			client.lastAction = now();
-            console.log('client disconnected (' + client.uuid + ')');
+            client.disconnect(false);
         });
         console.log('new client connected (' + client.uuid + ')');
     });
@@ -117,7 +109,6 @@ function Session(owner, id) {
     this.owner = owner;
     this.state = STATE_LOBBY;
     this.players = [];
-    this.players.push(owner);
     this.log = [];
     this.current = {
         turnCount: 0,
@@ -145,12 +136,24 @@ function Session(owner, id) {
 
     this.join = function(client) {
         if (this.players.length >= this.config.maxPlayers) return 'session max player limit reached';
-        if (this.players.indexOf(client) > -1) return 'player already in this session';
-        this.players.push(client);
+        if (this.players.indexOf(client) < 0) {
+            this.players.push(client);
+            client.__session = this;
+            client.sessionId = this.id;
+            client.ready = false;
+        }
         return true;
     };
 
-    this.leave = function(client) { };
+    this.leave = function(client) {
+        if (this.players.indexOf(client) > -1) {
+            this.players.splice(this.players.indexOf(client), 1);
+            client.__session = null;
+            client.sessionId = false;
+            this.update();
+            return true;
+        } else return 'player not in session';
+    };
 
     this.prepare = function() {
         if (this.state != STATE_LOBBY) return 'game already started';
@@ -293,6 +296,7 @@ function Client(socket) {
     this.__socket = socket;
     this.__token = md5(uuid());
     this.__actions = {};
+    this.__session =  null;
     this.id = uuid();
     this.playerName = '';
     this.sessionId = false;
@@ -309,6 +313,14 @@ function Client(socket) {
         console.log('failure: ' + e, message);
         if (this.__socket) this.__socket.emit(e, new Response(false, message));
     }.bind(this);
+
+    this.disconnect = function(keepAlive = false) {
+        if (this.__session) this.__session.leave(this);
+        this.__socket.disconnect();
+        if (!keepAlive) clients.remove(this);
+        else client.lastAction = now();
+        console.log('client disconnected: ' + this.id + ' (keepAlive=' + keepAlive + ')');
+    };
 
     this.addAction = function(e, receiver) {
         if (this.__socket) this.__actions[e] = new SocketAction(e, this.__socket, receiver);
@@ -345,6 +357,10 @@ function Client(socket) {
             } else this.returnFailure('enter', 'invalid playerName provided');
         });
 
+        this.addAction('logout', () => {
+            this.disconnect();
+        });
+
         this.addAction('createSession', (data) => {
             if (this.sessionId) return this.returnFailure('createSession', 'already in another session, leave first');
             var length = 4;
@@ -355,7 +371,9 @@ function Client(socket) {
             } while(sessions.findOne('id', sessionId) != null && --attempts > 0);
             if (attempts <= 0) console.log('interesting: could not create session after 10 retries');
             var session = new Session(this, (attempts > 0 ? sessionId : uuid()));
-            this.returnSuccess('createSession');
+            var message = session.join(this);
+            if (message === true) this.returnSuccess('createSession');
+            else this.returnFailure('createSession', message);
             sessions.add(session);
             session.update();
         });
@@ -440,7 +458,7 @@ function testIsBest() {
     console.log(session.current);
     session.nextTurn();
     console.log(session.current);
-    
+
 }
 
-testIsBest();
+//testIsBest();

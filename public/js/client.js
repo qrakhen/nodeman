@@ -43,12 +43,15 @@ function Game() {
         this.actions.createSession.trigger();
     }.bind(this);
 
-    /*this.joinSession = function() {
-        this.actions.joinSession.trigger({ id: sessionId });
-    }.bind(this);*/
+    this.logout = function() {
+        window.localStorage.removeItem('authToken');
+        window.socket.emit('logout');
+        this.setView('enter');
+        window.location.reload();
+    }.bind(this);
 
     this.initActions = function() {
-        var actions = $('input.action');
+        var actions = $('.action');
         actions.each(function(i, e) {
             $(e).on('click', function() {
                 var fn = window.game[$(e).attr('action')];
@@ -58,8 +61,8 @@ function Game() {
         });
     };
 
-    this.addAction = function(e, receiver) {
-        this.actions[e] = new SocketAction(e, receiver);
+    this.addAction = function(e, receiver, error) {
+        this.actions[e] = new SocketAction(e, receiver, error);
     };
 
     this.registerEvents = function() {
@@ -67,6 +70,20 @@ function Game() {
             this.state = data.clientData;
             this.store('state', data.clientData);
             this.store('authToken', data.token);
+            var path = window.location.pathname;
+            if (path.indexOf('join') > -1) {
+                var id = /join\/([^\/]+)\/?/g.exec(path)[1];
+                this.actions.joinSession.trigger({ id: id });
+            } else {
+                this.setView('menu');
+            }
+        }.bind(this));
+
+        this.addAction('joinSession', function(data) {
+
+        }.bind(this),
+        function(error) {
+            window.location.pathname = '/';
             this.setView('menu');
         }.bind(this));
 
@@ -74,6 +91,14 @@ function Game() {
             $('input.action[action="createRoom"]').addClass('disabled');
             $('view[name="menu"]').slideUp(720);
         }.bind(this));
+
+        this.addAction('lobbyAction', function(data) {
+
+        });
+
+        this.addAction('gameAction', function(data) {
+
+        });
 
         this.addAction('updateSession', function(data) {
             this.state.session = data.session;
@@ -115,7 +140,7 @@ window.init = function() {
         // a) revive the client and continue where it left, i.e. in a game or lobby room
         // b) resume the session, which does nothing at the moment because we have no accounts or anything
         // c) fail, when there was nothing to resume or revive.
-        var authToken = window.game.load('authToken');
+        var authToken = false; //window.game.load('authToken');
         if (authToken) setTimeout(function() {
             window.socket.emit('revive', { token: authToken });
         }, 500); // 500ms timeout so we can be sure the server has the corresponding listening callback defined at this point
@@ -133,7 +158,7 @@ window.init = function() {
  * @param subject The subject string
  * @param receiver The receiving callback, will be called as receiver(response) [only if success == true!];
  **/
-window.SocketAction = function(subject, receiver) {
+window.SocketAction = function(subject, receiver, error) {
 	var action = {
 		subject: subject,
 		count: { in: 0, out: 0 },
@@ -147,7 +172,10 @@ window.SocketAction = function(subject, receiver) {
 				console.log('SocketAction.received(' + subject + ')', response);
 				this.count.in++;
 				if (response.success) receiver(response.data);
-				else Materialize.toast(this.subject + ', error: ' + response.message, 4200);
+                else {
+                    Materialize.toast(this.subject + '.error: ' + response.message, 4200);
+                    if (typeof error === 'function') error(response.message);
+                }
 			}.bind(this));
 		}
 	};

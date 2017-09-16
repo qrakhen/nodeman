@@ -1,18 +1,36 @@
 body {
     margin: 0;
     padding: 0;
+    font-size: 16px;
 }
 
 header {
     height: 72px;
     padding: 16px 0;
-}
-
-main .row {
-    height: 200px;
-    margin: 20px auto;
+    margin-bottom: 72px;
 }
 
 header h4 {
     margin: 0 auto;
+}
+
+view {
+    display: none;
+    opacity: 0;
+    animation-duration: 0.3;
+}
+
+view.active {
+    display: block;
+    opacity: 1;
+}
+
+div.container input.std {
+    display: block;
+    max-width: 420px;
+    margin: 8px auto;
+}
+
+div.container p {
+    color: #727272;
 }

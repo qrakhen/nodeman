@@ -14,20 +14,30 @@
         <script type="text/javascript" src="/socket.io/socket.io.js"></script>
         <script type="text/javascript" src="/js/client.js"></script>
     </head>
-    <body class="center grey darken-2">
-        <header class="center grey darken-4">
-            <h4 class="lime-text text-darken-1">Nodeman.</h4>
+    <body class="center grey lighten-4">
+        <header class="center grey darken-1">
+            <h4 class="grey-text text-lighten-3 depth-3">Nodeman.</h4>
         </header>
-        <view name="enter">
-            <div class="row">
-                <div class="col center s12 m8 push-m2 l6 push-l3">
-                    <input class="in enter name" type="text" placeholder="name">
-                    <input class="in enter submit btn" type="submit" value="enter">
+        <view name="enter" class="active">
+            <div class="container">
+                <div class="container inner">
+                    <p>Please enter a nickname:</p>
+                    <input class="std text center" key="name" type="text">
+                    <input class="std submit btn action" action="setName" type="submit" value="Enter">
                 </div>
             </div>
         </view>
         <view name="menu">
-            create room
+            <div class="container">
+                <div class="container inner">
+                    <p>Hi, <v>playerName</v>!</p>
+                    <p>Create a new room and invite your group of friends, or ask them to send you an invite link.</p>
+                    <input class="std submit btn action" action="createRoom" type="submit" value="New Room">
+                </div>
+            </div>
+        </view>
+        <view name="lobby">
+            running game
         </view>
         <view name="game">
             running game
@@ -36,4 +46,10 @@
 
         </footer>
     </body>
+    <script>
+    window.init();
+        $(document).ready(function() {
+            window.init()
+        });
+    </script>
 </html>

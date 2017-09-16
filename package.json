@@ -1,7 +1,7 @@
 {
   "name": "nodeman",
   "version": "0.0.1",
-  "description": "a simple multiplayer hangman browser game, written in nodejs using socket.io, presented as a nodejs lesson for beginners or intermediates.",
+  "description": "a simple multiplayer game - often called 'Who am I?' - where you and a group of friends have to guess who you are by answering only yes/no questions. Written in nodejs using socket.io, presented as a nodejs lesson for beginners or intermediates.",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

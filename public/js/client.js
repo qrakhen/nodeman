@@ -19,11 +19,23 @@ function Game() {
         return $((view ? 'view[name="' + view + '"] ' : '') + 'input[key="' + key + '"]').val();
     };
 
+    this.setInputValue = function(key, view, value) {
+        // return the value of the given input that we select by its key and the optional view where the input is in.
+        $((view ? 'view[name="' + view + '"] ' : '') + 'input[key="' + key + '"]').val(value);
+    };
+
     this.setPlayerName = function() {
-        var name = this.getInputValue('name', 'enter');
-        if (name && name.length > 0) game.playerName = name;
-        this.setStorage('playerName', name);
-        this.setView('menu');
+        var name = this.getInputValue('playerName', 'enter');
+        if (name && name.length > 0) {
+            this.playerName = name;
+            this.store('playerName', name);
+            this.setView('menu');
+        } else console.error('invalid name');
+    }.bind(this);
+
+    this.createRoom = function() {
+        $('input.action[action="createRoom"]').addClass('disabled');
+        $('input[key="inviteLink"]').removeClass('hidden');
     }.bind(this);
 
     this.initActions = function() {
@@ -37,11 +49,11 @@ function Game() {
         });
     };
 
-    this.getStore = function(key) {
+    this.load = function(key) {
         return window.localStorage.getItem(key);
     };
 
-    this.setStore = function(key, value) {
+    this.store = function(key, value) {
         window.localStorage.setItem(key, value);
     };
 };
@@ -50,4 +62,8 @@ window.init = function() {
     window.socket = io();
     window.game = new Game();
     window.game.initActions();
+    var storedName = window.game.load('playerName');
+    if (storedName) {
+        window.game.setInputValue('playerName', 'enter', storedName);
+    }
 };

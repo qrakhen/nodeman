@@ -1,7 +1,7 @@
 <html>
     <head>
         <title>nodeman</title>
-        <meta name="author" content="dave@sygade.eu, dennis@sweden.se" />
+        <meta name="author" content="dave@sygade.eu" />
         <meta name="description" content="" />
         <meta charset="UTF-8" />
         <meta name="viewport" content="initial-scale=1" />
@@ -11,6 +11,7 @@
 
         <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
         <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.5/js/materialize.min.js"></script>
+        <script type="text/javascript" src="http://cdn.ractivejs.org/latest/ractive.min.js"></script>
         <script type="text/javascript" src="/socket.io/socket.io.js"></script>
         <script type="text/javascript" src="/js/client.js"></script>
     </head>
@@ -22,8 +23,8 @@
             <div class="container">
                 <div class="container inner">
                     <p>Please enter a nickname:</p>
-                    <input class="std text center" key="playerName" type="text">
-                    <input class="std submit btn action" action="setPlayerName" type="submit" value="Enter">
+                    <input class="centered text center" key="playerName" type="text">
+                    <input class="centered submit btn action" action="setPlayerName" type="submit" value="Enter">
                 </div>
             </div>
         </view>
@@ -32,9 +33,8 @@
                 <div class="container inner">
                     <p>Hi, <v>playerName</v>!</p>
                     <p>Create a new room and invite your group of friends, or ask them to send you an invite link.</p>
-                    <input class="std submit btn action" action="createRoom" type="submit" value="Create Room">
-                    <input class="std text center" key="lobbyCode" type="text">
-                    <input class="std submit btn action" action="joinLobby" type="submit" value="Enter">
+                    <input class="submit btn action" action="createRoom" type="submit" value="Create Room">
+                    <input readonly class="hidden centered text" key="inviteLink" type="text" value="">
                 </div>
             </div>
         </view>
@@ -49,7 +49,6 @@
         </footer>
     </body>
     <script>
-    window.init();
         $(document).ready(function() {
             window.init()
         });

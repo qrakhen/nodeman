@@ -49,6 +49,16 @@ function Game() {
     };
 
     this.registerEvents = function() {
+        // move to init because timing
+        this.actions.welcome = new SocketAction('welcome', function(data) {
+            var token = window.game.load('token');
+            if (token && token != data.token) {
+                window.socket.emit('reconnect', { token: token });
+            } else {
+                this.store('uuid', data.uuid);
+                this.store('token', data.token);
+            }
+        }.bind(this));
         this.actions.enter = new SocketAction('enter', function(data) {
             this.playerName = data.playerName;
             this.store('playerName', data.playerName);

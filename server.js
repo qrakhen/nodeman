@@ -12,6 +12,7 @@ const http        = require('http').Server(app);
 const io          = require('socket.io')(http);
 const List        = require('sygtools').List;
 const uuid        = require('uuid/v4');
+const md5         = require('md5');
 
 app.use(express.static(__dirname + '/public'));
 
@@ -41,8 +42,11 @@ http.listen(24242, () => {
     io.on('connection', (socket) => {
         var client = new Client(socket);
         client.registerActions();
-        clients.add(clients);
-        socket.emit('welcome', { uuid: client.uuid });
+        clients.add(client);
+        socket.emit('welcome', {
+            uuid: client.uuid,
+            token: client.token
+        });
         socket.on('disconnect', () => {
             clients.remove(client);
             console.log('client disconnected (' + client.uuid + ')');
@@ -83,6 +87,7 @@ var SocketAction = function(subject, socket, receiver) {
 
 function Client(socket) {
     this.uuid = uuid();
+    this.token = md5(uuid());
     this.socket = socket;
     this.actions = {};
     this.playerName = '';
@@ -98,6 +103,16 @@ function Client(socket) {
     };
 
     this.registerActions = () => {
+        this.actions.reconnect = new SocketAction('reconnect', this.socket, (data) => {
+            var token = data.token;
+            var __client = clients.findOne('token', token);
+            if (__client) {
+                __client.socket = this.socket;
+                this.socket = null;
+                clients.remove(this);
+                __client.socket.returnSuccess('reconnect');
+            } else this.socket.returnFailure('reconnect', 'no corresponding client found for given token');
+        });
         this.actions.enter = new SocketAction('enter', this.socket, (data) => {
             var name = data.playerName;
             if (name && name.length > 0) {
@@ -108,9 +123,7 @@ function Client(socket) {
                     playerName: this.playerName,
                     enteredAt: this.enteredAt
                 });
-            } else {
-                this.socket.returnFailure('enter', 'invalid playerName provided');
-            }
+            } else this.socket.returnFailure('enter', 'invalid playerName provided');
         });
         this.actions.createRoom = new SocketAction('createRoom', this.socket, (data) => {
             if (this.currentRoom !== null) return this.socket.returnFailure('createRoom', 'already in another room, leave first');

@@ -22,8 +22,8 @@
             <div class="container">
                 <div class="container inner">
                     <p>Please enter a nickname:</p>
-                    <input class="std text center" key="name" type="text">
-                    <input class="std submit btn action" action="setName" type="submit" value="Enter">
+                    <input class="std text center" key="playerName" type="text">
+                    <input class="std submit btn action" action="setPlayerName" type="submit" value="Enter">
                 </div>
             </div>
         </view>
@@ -32,7 +32,10 @@
                 <div class="container inner">
                     <p>Hi, <v>playerName</v>!</p>
                     <p>Create a new room and invite your group of friends, or ask them to send you an invite link.</p>
-                    <input class="std submit btn action" action="createRoom" type="submit" value="New Room">
+                    <input class="std submit btn action" action="createRoom" type="submit" value="Create Room">
+                    <hr />
+                    <input class="std text center" key="lobbyCode" type="text">
+                    <input class="std submit btn action" action="joinLobby" type="submit" value="Enter">
                 </div>
             </div>
         </view>

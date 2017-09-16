@@ -58,11 +58,11 @@ function Game() {
     }.bind(this);
 
     this.load = function(key) {
-        return window.localStorage.getItem('nodeman__' + key);
+        return window.localStorage.getItem(key);
     };
 
     this.store = function(key, value) {
-        window.localStorage.setItem('nodeman__' + key, value);
+        window.localStorage.setItem(key, value);
     };
 };
 
@@ -89,19 +89,19 @@ window.ClientAction = function(subject, receiver) {
 		subject: subject,
 		count: { in: 0, out: 0 },
 		trigger: function(data) {
-			console.log("TRIGGERED: " + subject, data);
+			console.log('ClientAction.trigger(' + subject + ')', data);
 			this.count.out++;
 			socket.emit(subject, data);
 		},
 		register: function(receiver) {
 			var self = this;
 			socket.on(subject, function(response) {
-				console.log("RECEIVED: " + subject, response);
+				console.log('ClientAction.received(' + subject + ')', response);
 				self.count.in++;
 				if (response.success)
 					receiver(response.data);
 				else
-					Materialize.toast("FAILED: " + response.message, 4200);
+					Materialize.toast("Error: " + response.message, 4200);
 			});
 		}
 	};

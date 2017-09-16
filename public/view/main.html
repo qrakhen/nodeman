@@ -33,24 +33,43 @@
         <view name="menu">
             <div class="container">
                 <div class="container inner">
-                    <div class="drawer">
+                    <div class="create">
                         <p>Hi, <v>playerName</v>!</p>
                         <p>Create a new room and invite your group of friends, or ask them to send you an invite link.</p>
-                        <input class="submit btn action" action="createRoom" type="submit" value="Create Room">
+                        <input class="submit btn action" action="createSession" type="submit" value="Create Room">
                     </div>
-                    <input readonly class="hidden centered center text" key="inviteLink" type="text" value="">
-                    <script>$('input[key="inviteLink"]').on('click', function(e) { e.target.select(); });</script>
+                    <div class="lobby hidden">
+                        <h5><v>session.owner.playerName</v>'s Lobby</h5>
+                        <input readonly class="centered center text" key="inviteLink" type="text" value="">
+                        <script>$('input[key="inviteLink"]').on('click', function(e) { e.target.select(); });</script>
+                        <div class="playerList">
+                            <div class="template" tpl="playerList"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </view>
 
         <view name="lobby">
-            running game
+            <div class="container">
+
+            </div>
         </view>
 
         <view name="game">
             running game
         </view>
+
+        <script class="template" name="playerList" type="text/ractive">
+            {{#each data}}
+                <div class="row player">
+                    <div class="col s3 m2"></div>
+                    <div class="col s9 m10">
+                        <p class="name">{{ playerName }}</p>
+                    </div>
+                </div>
+            {{/each}}
+        </script>
 
         <footer class="teal lighten-1 z-depth-1">
             <div class="container">

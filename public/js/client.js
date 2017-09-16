@@ -1,19 +1,24 @@
 function Game() {
     this.actions = {};
-    this.clientData = {};
+    this.state = {};
 
     this.setView = function(view) {
         // disable all active views.
         $('view.active').removeClass('active');
         // activate only the desired view by selecting view[name="viewName"] and adding the 'active' class.
         $('view[name="' + view + '"]').addClass('active');
+        this.updateViewVars();
+    }.bind(this);
+
+    this.updateViewVars = function() {
         // look for all <v>-tags within the active view,
         // and replace their text with the corresponding variable using their key.
         $('view.active v').each(function(i, e) {
             var key = $(e).attr('key');
             if (!key) key = $(e).text();
             $(e).attr('key', key);
-            $(e).text(this.clientData[key] ? this.clientData[key] : key);
+            var val = getObjectValue(this.state, key);
+            $(e).text(val ? val : key);
         }.bind(this));
     }.bind(this);
 
@@ -34,9 +39,13 @@ function Game() {
         } else console.error('invalid name');
     }.bind(this);
 
-    this.createRoom = function() {
-        this.actions.createRoom.trigger();
+    this.createSession = function() {
+        this.actions.createSession.trigger();
     }.bind(this);
+
+    /*this.joinSession = function() {
+        this.actions.joinSession.trigger({ id: sessionId });
+    }.bind(this);*/
 
     this.initActions = function() {
         var actions = $('input.action');
@@ -49,42 +58,52 @@ function Game() {
         });
     };
 
+    this.addAction = function(e, receiver) {
+        this.actions[e] = new SocketAction(e, receiver);
+    };
+
     this.registerEvents = function() {
-        this.actions.enter = new SocketAction('enter', function(data) {
-            this.clientData = data.clientData;
-            this.store('clientData', data.clientData);
+        this.addAction('enter', function(data) {
+            this.state = data.clientData;
+            this.store('state', data.clientData);
             this.store('authToken', data.token);
             this.setView('menu');
         }.bind(this));
-        this.actions.createRoom = new SocketAction('createRoom', function(data) {
-            this.clientData.roomId = data.roomId;
+
+        this.addAction('createSession', function(data) {
             $('input.action[action="createRoom"]').addClass('disabled');
-            $('input[key="inviteLink"]').removeClass('hidden');
-            $('view[name="menu"] div.drawer').slideUp(720);
-            var url = window.location.origin + '/join/' + data.roomId;
+            $('view[name="menu"] div.create').slideUp(720);
+            $('view[name="menu"] div.lobby').removeClass('hidden');
+        }.bind(this));
+
+        this.addAction('joinSession', function(data) {
+            $('input.action[action="createRoom"]').addClass('disabled');
+            $('view[name="menu"] div.create').slideUp(720);
+            $('view[name="menu"] div.lobby').removeClass('hidden');
+        }.bind(this));
+
+        this.addAction('updateSession', function(data) {
+            this.state.session = data.session;
+            var url = window.location.origin + '/join/' + data.session.id;
             this.setInputValue('inviteLink', 'menu', url);
+            window.renderTemplate('playerList', data.session.players);
+            this.updateViewVars();
         }.bind(this));
     }.bind(this);
 
     this.load = function(key) {
         var split = key.split('.');
         var value = window.localStorage.getItem(split[0]);
-        if (split.length > 1) {
-            prev = JSON.parse(value);
-            for (var i = 1; i < split.length; i++) {
-                prev = prev[split[i]];
-            }
-            value = prev;
-        }
         if (!value) return null;
-        else if (value.charAt(0) === '{') return JSON.parse(value);
+        if (value.charAt(0) === '{') value = JSON.parse(value);
+        if (split.length > 1) return getObjectValue(value, key.substr(key.indexOf('.') + 1));
         else return value;
-    };
+    }.bind(this);
 
     this.store = function(key, value) {
         if (typeof value === 'object') value = JSON.stringify(value);
         window.localStorage.setItem(key, value);
-    };
+    }.bind(this);
 };
 
 window.init = function() {
@@ -104,7 +123,7 @@ window.init = function() {
         }, 500); // 500ms timeout so we can be sure the server has the corresponding listening callback defined at this point
 
         // set the name input value to the stored playerName to be extra user-friendly
-        var storedName = window.game.load('clientData.playerName');
+        var storedName = window.game.load('state.playerName');
         if (storedName) window.game.setInputValue('playerName', 'enter', storedName);
     });
 };
@@ -136,4 +155,33 @@ window.SocketAction = function(subject, receiver) {
 	};
 	action.register(receiver);
 	return action;
+};
+
+window.getObjectValue = function(object, query) {
+    var split = query.split('.');
+    var value = object[split[0]];
+    if (split.length < 2) return value;
+    for (var i = 1; i < split.length; i++) {
+        value = value[split[i]];
+        if (!value) return value;
+    }
+    return value;
+};
+
+window.renderTemplate = function(tpl, data) {
+    // build the CSS selectors for the template anchor and script
+    var anchorSelect = 'div.template[tpl="' + tpl + '"]';
+    var scriptSelect = 'script.template[name="' + tpl + '"]';
+    // apparently, ractive NEEDS ids for selection, so we just generate them here and set them during runtime
+    var anchorId = 'tplAnchor-' + tpl;
+    var scriptId = 'tplScript-' + tpl;
+    $(anchorSelect).attr('id', anchorId);
+    $(scriptSelect).attr('id', scriptId);
+    // flush the anchor, we want to a full render, no partial kiddie stuff
+    $(anchorSelect).empty();
+    var result = new Ractive({
+        el: '#' + anchorId,
+        template: '#' + scriptId,
+        data: { data: data }
+    });
 };

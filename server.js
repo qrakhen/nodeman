@@ -29,6 +29,7 @@ app.use(express.static(__dirname + '/public'));
 
 // We create a new List for the sockets (it's one of my own classes :3 very handy)
 const clients = new List();
+const sessions = new List();
 
 function now() {
 	return new Date().getTime();
@@ -96,28 +97,53 @@ var SocketAction = function(subject, socket, receiver) {
 	return action;
 };
 
-Object.prototype.getData = function() {
-    var data = {};
-    for (key in this) {
-        // ignore all members that start with a double underline (pseudo-private members)
-        if (key.indexOf('__') === 0) continue;
-        var v = this[key];
-        if (typeof v === 'string' || typeof v === 'number') {
-            data[key] = v;
-        } else if (typeof v === 'object') {
-            data[key] = (v ? v.getData() : null);
-        }
-    }
-    return data;
+function Session(owner, id) {
+    this.id = (id ? id : uuid());
+    this.owner = owner;
+    this.state = 'lobby';
+    this.players = new List();
+    this.players.add(owner);
+    this.config = {
+        maxPlayers: 10,
+        password: false
+    };
+
+    this.join = function(client) {
+        if (this.players.getAll().length >= this.config.maxPlayers) return 'session max player limit reached';
+        if (this.players.findOne('id', client.id) !== null) return 'player already in this session';
+        this.players.add(client);
+        return true;
+    };
+
+    this.leave = function(client) {
+    };
+
+    this.start = function() {
+
+    };
+
+    this.update = function() {
+        this.players.data.forEach((client) => {
+            if (typeof client !== 'object') return;
+            client.returnSuccess('updateSession', { session: this.getState() });
+        });
+    };
+
+    this.getState = function() {
+        var data = this.getData();
+        data.players = data.players.data;
+        delete data.config.password;
+        return data;
+    };
 };
 
 function Client(socket) {
     this.__socket = socket;
     this.__token = md5(uuid());
-    this.uuid = uuid();
-    this.actions = {};
+    this.__actions = {};
+    this.id = uuid();
     this.playerName = '';
-    this.currentRoom = null;
+    this.sessionId = false;
     this.enteredAt = 0;
 	this.lastAction = 0;
 
@@ -131,8 +157,13 @@ function Client(socket) {
         this.emit(e, new Response(false, message));
     }.bind(this.__socket);
 
+    this.addAction = function(e, receiver) {
+        this.__actions[e] = new SocketAction(e, this.__socket, receiver);
+    };
+
     this.registerActions = () => {
-        this.actions.revive = new SocketAction('revive', this.__socket, (data) => {
+
+        this.addAction('revive', (data) => {
             var token = data.token;
             var client = clients.findOne('__token', token);
             if (client) {
@@ -147,7 +178,8 @@ function Client(socket) {
 				} else this.returnFailure('revive', 'given socket died because to keep alive limit was passed')
             } else this.returnFailure('revive', 'no corresponding client found for given token');
         });
-        this.actions.enter = new SocketAction('enter', this.__socket, (data) => {
+
+        this.addAction('enter', (data) => {
             var name = data.playerName;
             if (name && name.length > 0) {
                 this.playerName = name;
@@ -159,13 +191,59 @@ function Client(socket) {
                 });
             } else this.returnFailure('enter', 'invalid playerName provided');
         });
-        this.actions.createRoom = new SocketAction('createRoom', this.__socket, (data) => {
-            if (this.currentRoom !== null) return this.returnFailure('createRoom', 'already in another room, leave first');
-            var roomId = '';
-            var c = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' ];
-            for (var i = 0; i < 8; i++) roomId += c[Math.floor(Math.random()*c.length)];
-            console.log('new room ' + roomId + ' created!');
-            this.returnSuccess('createRoom', { roomId: roomId });
+
+        this.addAction('createSession', (data) => {
+            if (this.sessionId) return this.returnFailure('createSession', 'already in another session, leave first');
+            var length = 3;
+            var attempts = 10;
+            var sessionId;
+            do {
+                sessionId = '';
+                length++;
+                var c = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' ];
+                for (var i = 0; i < length; i++) sessionId += c[Math.floor(Math.random()*c.length)];
+            } while(sessions.findOne('id', sessionId) != null && --attempts > 0);
+            if (attempts <= 0) console.log('interesting: could not create session after 10 retries');
+            var session = new Session(this, (attempts > 0 ? sessionId : uuid()));
+            console.log('new session ' + session.id + ' created!');
+            this.returnSuccess('createSession');
+            sessions.add(session);
+            session.update();
+        });
+
+        this.addAction('joinSession', (data) => {
+            if (this.sessionId) return this.returnFailure('joinSession', 'already in another session, leave first');
+            var session = sessions.findOne('id', data.id);
+            if (!session) return this.returnFailure('joinSession', 'session ' + data.id + ' not found');
+            var message = session.join(this);
+            if (message === true) this.returnSuccess('joinSession');
+            else this.returnFailure('joinSession', message);
+            session.update();
+        });
+
+        this.addAction('updateSession', (data) => {
+
         });
     };
 }
+
+Object.prototype.getData = function(recursive = true) {
+    var data = {};
+    for (key in this) {
+        if (key.indexOf('__') === 0) continue;
+        var v = this[key];
+        if (typeof v === 'string' || typeof v === 'number') data[key] = v;
+        else if (typeof v === 'object' && recursive) data[key] = (v ? v.getData() : null);
+    }
+    return data;
+};
+
+Object.prototype.getValue = function(query) {
+    var split = query.split('.');
+    var value = this;
+    if (split.length == 1) return value;
+    for (var i = 1; i < split.length; i++) {
+        value = value[split[i]];
+    }
+    return value;
+};

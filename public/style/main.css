@@ -34,6 +34,10 @@ view.active {
     opacity: 1;
 }
 
+.row.flat {
+    margin-bottom: 0px;
+}
+
 div.container input.centered {
     display: block;
     max-width: 420px;
@@ -44,9 +48,46 @@ div.container p {
     color: #727272;
 }
 
+div.lobby div.chat {
+    min-height: 360px;
+    position: relative;
+}
+
+div.lobby input.message {
+    position: absolute;
+    bottom: -4px;
+    left: 12px;
+    width: 90%;
+    text-align: left;
+}
+
+div.playerList div.row.player {
+    height: 36px;
+    line-height: 36px;
+    margin-bottom: 4px;
+}
+
+div.playerList div.row.player:hover {
+    background-color: #b2dfdb;
+}
+
+div.playerList div.col {
+    padding: 0px;
+}
+
+div.playerList img.avatar {
+    height: 32px;
+    margin: 2px 16px 2px 2px;
+    float: left;
+}
+
 input[readonly] {
     font-family: monospace;
     color: #424242;
+}
+
+.animate {
+    transition: all .2s ease-out;
 }
 
 a {

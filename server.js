@@ -53,6 +53,13 @@ http.listen(config.server.port, () => {
 		response.sendfile('./public/view/main.html');
 	});
 
+    // this listens to clients who want to join a given room,
+    // providing the roomId directly within the url
+    /*app.get('/img/:img', (query, response) => {
+        console.log('img get request: ' + query.params.img);
+		response.sendfile('./public/img/' + query.params.img);
+	});*/
+
     // this is called as soon as a new socket (socket.io) connects.
     // here we create our client and add it to a list of all connected clients.
     io.on('connection', (socket) => {
@@ -97,42 +104,187 @@ var SocketAction = function(subject, socket, receiver) {
 	return action;
 };
 
+const ANSWER_YES = 1;
+const ANSWER_NO = 0;
+const ANSWER_NONE = -1;
+
+const STATE_LOBBY = 'lobby';
+const STATE_PREPARE = 'prepare';
+const STATE_PLAYING = 'playing';
+
 function Session(owner, id) {
     this.id = (id ? id : uuid());
     this.owner = owner;
-    this.state = 'lobby';
-    this.players = new List();
-    this.players.add(owner);
+    this.state = STATE_LOBBY;
+    this.players = [];
+    this.players.push(owner);
+    this.log = [];
+    this.current = {
+        turnCount: 0,
+        player: null,
+        question: null,
+        finishAttempt: false,
+        answers: {}
+    };
     this.config = {
         maxPlayers: 10,
         password: false
     };
+    this.__identities = {};
+    this.__playerIndex = 0;
+
+    this.__writeLog = function(turnState) {
+        this.log.push({
+            turn: turnState.turnCount,
+            player: turnState.player.playerName,
+            question: turnState.question,
+            finishAttempt: turnState.finishAttempt,
+            answers: this.answersToPercentage(turnState.answers)
+        })
+    };
 
     this.join = function(client) {
-        if (this.players.getAll().length >= this.config.maxPlayers) return 'session max player limit reached';
-        if (this.players.findOne('id', client.id) !== null) return 'player already in this session';
-        this.players.add(client);
+        if (this.players.length >= this.config.maxPlayers) return 'session max player limit reached';
+        if (this.players.indexOf(client) > -1) return 'player already in this session';
+        this.players.push(client);
         return true;
     };
 
-    this.leave = function(client) {
+    this.leave = function(client) { };
+
+    this.prepare = function() {
+        if (this.state != STATE_LOBBY) return 'game already started';
+        if (this.players.length < 2) return 'you can not play alone by yourself, sorry';
+        this.state = STATE_PREPARE;
+        this.players.forEach((client) => {
+            this.__identities[client.id] = {
+                submittedName: null,
+                hiddenName: null
+            };
+        });
+        this.update();
+    };
+
+    this.submitName = function(player, name) {
+        if (this.state != STATE_PREPARE) return 'names can only be submitted during preparation phase';
+        if (!this.__identities[player.id].submittedName)  {
+            this.__identities[player.id].submittedName = name;
+            var count = 0;
+            for (var i in this.__identities) {
+                if (this.__identities[i].submittedName != null) count++;
+            }
+            if (count >= this.players.length) {
+                this.start();
+            }
+        } else return 'this player already submitted a name';
     };
 
     this.start = function() {
+        if (this.state != STATE_PREPARE) return 'game already started';
+        this.state = STATE_PLAYING;
+        var names;
+        var keys = Object.keys(this.__identities);
+        do {
+            names = this.shuffleNames();
+            for (var i = 0; i < keys.length; i++) {
+                for (var n = 0; n < names.length; n++) {
+                    if (this.__identities[keys[i]].submittedName != names[n] &&
+                        this.__identities[keys[i]].hiddenName == null) {
+                        this.__identities[keys[i]].hiddenName = names[n];
+                        names.splice(n, 1);
+                        break;
+                    } else {
+                        if (n == names.length - 1) {
+                            this.__identities[keys[i]].hiddenName = this.__identities[keys[i - 1]].hiddenName;
+                            this.__identities[keys[i - 1]].hiddenName = names[0];
+                            names.splice(0, 1);
+                        }
+                    }
+                }
+            }
+        } while (names.length > 0);
+        this.nextTurn();
+        this.update();
+    };
 
+    this.shuffleNames = function() {
+        var j, x, i;
+        var names = [];
+        for (var id in this.__identities)
+            names.push(this.__identities[id].submittedName);
+        for (i = names.length; i; i--) {
+            j = Math.floor(Math.random() * i);
+            x = names[i - 1];
+            names[i - 1] = names[j];
+            names[j] = x;
+        }
+        return names;
+    };
+
+    this.nextTurn = function() {
+        if (this.current.turnCount > 0) {
+            this.__writeLog(this.current);
+            var stays = (this.answersToPercentage(this.current.answers) >= 80);
+            if (!stays) (this.__playerIndex++);
+            else if (this.current.finishAttempt == true) console.log('WONNED!');
+        }
+        var nextPlayer = this.players[this.__playerIndex % this.players.length];
+        this.current.turnCount++;
+        this.current.player = nextPlayer;
+        this.current.question = null;
+        this.current.answers = {};
+        this.update();
+    };
+
+    this.submitAction = function(player, action, value, finishAttempt = false) {
+        if (typeof value === undefined) return 'value is required';
+        if (action == 'question') {
+            if (this.current.player.id === player.id) {
+                if (this.current.question === null) {
+                    if (value.length < 5) return 'invalid question provided';
+                    this.current.question = value;
+                    this.current.finishAttempt = finishAttempt;
+                } else return 'one player may only ask one question per turn';
+            } else return 'this player is not currently the one asking questions';
+        } else if (action == 'answer') {
+            if (this.current.player.id === player.id) return 'the asking player may not answer his own question';
+            if (this.current.question !== null) {
+                if (value < -1 || value > 1) return 'invalid answer provided';
+                this.current.answers[player.id] = value;
+            } else return 'you can not answer a question that has not yet been asked';
+        } else return 'unknown action requested';
+        if (this.allPlayersSubmitted()) this.nextTurn();
+        this.update();
+    };
+
+    this.allPlayersSubmitted = function() {
+        var answered = this.current.answers.keys.length;
+        return (answered + 1 >= this.players.length);
+    };
+
+    this.answersToPercentage = function(answers) {
+        var c = 0;
+        for (var answer in answers) {
+            c += (answer < 0 ? 0 : answer * 100);
+        }
+        return c / answers.length;
     };
 
     this.update = function() {
-        this.players.data.forEach((client) => {
-            if (typeof client !== 'object') return;
-            client.returnSuccess('updateSession', { session: this.getState() });
+        this.players.forEach((client) => {
+            client.returnSuccess('updateSession', { session: this.getData() });
         });
     };
 
-    this.getState = function() {
-        var data = this.getData();
-        data.players = data.players.data;
-        delete data.config.password;
+    this.getData = function(recursive = true, scope = this) {
+        var data = {};
+        for (key in scope) {
+            if (key.indexOf('__') === 0) continue;
+            if (typeof scope[key] === 'function') continue;
+            var v = scope[key];
+            if (typeof v === 'string' || typeof v === 'number') data[key] = v;
+            else if (typeof v === 'object' && recursive) data[key] = (v ? this.getData(true, v) : null);
+        }
         return data;
     };
 };
@@ -146,19 +298,20 @@ function Client(socket) {
     this.sessionId = false;
     this.enteredAt = 0;
 	this.lastAction = 0;
+    this.ready = false;
 
     this.returnSuccess = function(e, data) {
         console.log('success: ' + e, data);
-        this.emit(e, new Response(true, data));
-    }.bind(this.__socket);
+        if (this.__socket) this.__socket.emit(e, new Response(true, data));
+    }.bind(this);
 
     this.returnFailure = function(e, message) {
         console.log('failure: ' + e, message);
-        this.emit(e, new Response(false, message));
-    }.bind(this.__socket);
+        if (this.__socket) this.__socket.emit(e, new Response(false, message));
+    }.bind(this);
 
     this.addAction = function(e, receiver) {
-        this.__actions[e] = new SocketAction(e, this.__socket, receiver);
+        if (this.__socket) this.__actions[e] = new SocketAction(e, this.__socket, receiver);
     };
 
     this.registerActions = () => {
@@ -194,18 +347,14 @@ function Client(socket) {
 
         this.addAction('createSession', (data) => {
             if (this.sessionId) return this.returnFailure('createSession', 'already in another session, leave first');
-            var length = 3;
+            var length = 4;
             var attempts = 10;
             var sessionId;
             do {
-                sessionId = '';
-                length++;
-                var c = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' ];
-                for (var i = 0; i < length; i++) sessionId += c[Math.floor(Math.random()*c.length)];
+                sessionId = getRandomString(length++);
             } while(sessions.findOne('id', sessionId) != null && --attempts > 0);
             if (attempts <= 0) console.log('interesting: could not create session after 10 retries');
             var session = new Session(this, (attempts > 0 ? sessionId : uuid()));
-            console.log('new session ' + session.id + ' created!');
             this.returnSuccess('createSession');
             sessions.add(session);
             session.update();
@@ -224,26 +373,74 @@ function Client(socket) {
         this.addAction('updateSession', (data) => {
 
         });
+
+        this.addAction('lobbyAction', (data) => {
+            var type = data.type;
+        });
+
+        this.addAction('gameAction', (data) => {
+            var type = data.type;
+        });
+    };
+
+    this.getData = function(recursive = true) {
+        var data = {};
+        for (key in this) {
+            if (key.indexOf('__') === 0) continue;
+            if (typeof this[key] === 'function') continue;
+            var v = this[key];
+            if (typeof v === 'string' || typeof v === 'number') data[key] = v;
+            else if (typeof v === 'object' && recursive) data[key] = (v ? v.getData() : null);
+        }
+        return data;
     };
 }
 
-Object.prototype.getData = function(recursive = true) {
-    var data = {};
-    for (key in this) {
-        if (key.indexOf('__') === 0) continue;
-        var v = this[key];
-        if (typeof v === 'string' || typeof v === 'number') data[key] = v;
-        else if (typeof v === 'object' && recursive) data[key] = (v ? v.getData() : null);
-    }
-    return data;
-};
+function getRandomString(length = 4) {
+    var r = '';
+    var c = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' ];
+    for (var i = 0; i < length; i++) r += c[Math.floor(Math.random()*c.length)];
+    return r;
+}
 
-Object.prototype.getValue = function(query) {
+var getValue = function(object, query) {
     var split = query.split('.');
-    var value = this;
+    var value = object;
     if (split.length == 1) return value;
     for (var i = 1; i < split.length; i++) {
         value = value[split[i]];
     }
     return value;
 };
+
+function testIsBest() {
+    var client = new Client();
+    var cliend = new Client();
+    client.playerName = 'dave';
+    cliend.playerName = 'jave';
+    var session = new Session(client, '12345');
+    session.join(cliend);
+    for (var i = 0; i < 10; i++) {
+        var c = new Client();
+        c.playerName = getRandomString(8);
+        session.join(c);
+    }
+    console.log(session.players);
+    session.prepare();
+    console.log(session.__identities);
+    for (var c in session.players) {
+        session.submitName(session.players[c], getRandomString(16));
+    }
+    console.log(session.__identities);
+    session.start();
+    console.log(session.current);
+    session.nextTurn();
+    console.log(session.current);
+    session.nextTurn();
+    console.log(session.current);
+    session.nextTurn();
+    console.log(session.current);
+    
+}
+
+testIsBest();

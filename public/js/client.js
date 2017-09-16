@@ -72,21 +72,19 @@ function Game() {
 
         this.addAction('createSession', function(data) {
             $('input.action[action="createRoom"]').addClass('disabled');
-            $('view[name="menu"] div.create').slideUp(720);
-            $('view[name="menu"] div.lobby').removeClass('hidden');
-        }.bind(this));
-
-        this.addAction('joinSession', function(data) {
-            $('input.action[action="createRoom"]').addClass('disabled');
-            $('view[name="menu"] div.create').slideUp(720);
-            $('view[name="menu"] div.lobby').removeClass('hidden');
+            $('view[name="menu"]').slideUp(720);
         }.bind(this));
 
         this.addAction('updateSession', function(data) {
             this.state.session = data.session;
-            var url = window.location.origin + '/join/' + data.session.id;
-            this.setInputValue('inviteLink', 'menu', url);
-            window.renderTemplate('playerList', data.session.players);
+            if (data.session.state == 'lobby') {
+                this.setView('lobby');
+                var url = window.location.origin + '/join/' + data.session.id;
+                this.setInputValue('inviteLink', 'lobby', url);
+                window.renderTemplate('playerList', data.session.players);
+            } else {
+                this.setView('game');
+            }
             this.updateViewVars();
         }.bind(this));
     }.bind(this);

@@ -33,39 +33,55 @@
         <view name="menu">
             <div class="container">
                 <div class="container inner">
-                    <div class="create">
-                        <p>Hi, <v>playerName</v>!</p>
-                        <p>Create a new room and invite your group of friends, or ask them to send you an invite link.</p>
-                        <input class="submit btn action" action="createSession" type="submit" value="Create Room">
-                    </div>
-                    <div class="lobby hidden">
-                        <h5><v>session.owner.playerName</v>'s Lobby</h5>
-                        <input readonly class="centered center text" key="inviteLink" type="text" value="">
-                        <script>$('input[key="inviteLink"]').on('click', function(e) { e.target.select(); });</script>
-                        <div class="playerList">
-                            <div class="template" tpl="playerList"></div>
-                        </div>
-                    </div>
+                    <p>Hi, <v>playerName</v>!</p>
+                    <p>Create a new room and invite your group of friends, or ask them to send you an invite link.</p>
+                    <input class="submit btn action" action="createSession" type="submit" value="Create Room">
                 </div>
             </div>
         </view>
 
         <view name="lobby">
             <div class="container">
-
+                <div class="row header">
+                    <div class="col s12">
+                        <h5><v>session.owner.playerName</v>'s Lobby</h5>
+                        <input readonly class="centered center text" key="inviteLink" type="text" value="">
+                        <script>$('input[key="inviteLink"]').on('click', function(e) { e.target.select(); });</script>
+                    </div>
+                </div>
+                <div class="row header flat">
+                    <div class="col s12 m7 l9">
+                        <p>Chat</p>
+                    </div>
+                    <div class="col s12 m5 l3">
+                        <p>Players</p>
+                    </div>
+                </div>
+                <div class="row lobby grey lighten-2">
+                    <div class="col s12 m7 l9 chat">
+                        <div class="history"></div>
+                        <input class="message" type="text">
+                    </div>
+                    <div class="col s12 m5 l3 playerList">
+                        <div class="template" tpl="playerList"></div>
+                    </div>
+                </div>
             </div>
         </view>
 
         <view name="game">
-            running game
+            <div class="container">
+            </div>
         </view>
 
         <script class="template" name="playerList" type="text/ractive">
             {{#each data}}
-                <div class="row player">
-                    <div class="col s3 m2"></div>
+                <div class="row player animate grey lighten-3 z-depth-1">
+                    <div class="col s3 m2">
+                        <img class="avatar" src="img/avatar_default.jpg">
+                    </div>
                     <div class="col s9 m10">
-                        <p class="name">{{ playerName }}</p>
+                        <span class="name left">{{ playerName }}</span>
                     </div>
                 </div>
             {{/each}}

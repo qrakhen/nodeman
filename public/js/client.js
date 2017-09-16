@@ -1,5 +1,6 @@
 function Game() {
     this.actions = {};
+    this.clientData = {};
 
     this.setView = function(view) {
         // disable all active views.
@@ -12,7 +13,7 @@ function Game() {
             var key = $(e).attr('key');
             if (!key) key = $(e).text();
             $(e).attr('key', key);
-            $(e).text(this[key] ? this[key] : key);
+            $(e).text(this.clientData[key] ? this.clientData[key] : key);
         }.bind(this));
     }.bind(this);
 
@@ -50,25 +51,38 @@ function Game() {
 
     this.registerEvents = function() {
         this.actions.enter = new SocketAction('enter', function(data) {
-            this.playerName = data.playerName;
-            this.store('playerName', data.playerName);
-            this.store('clientUuid', data.uuid);
+            this.clientData = data.clientData;
+            this.store('clientData', data.clientData);
             this.store('authToken', data.token);
             this.setView('menu');
         }.bind(this));
         this.actions.createRoom = new SocketAction('createRoom', function(data) {
+            this.clientData.roomId = data.roomId;
             $('input.action[action="createRoom"]').addClass('disabled');
             $('input[key="inviteLink"]').removeClass('hidden');
+            $('view[name="menu"] div.drawer').slideUp(720);
             var url = window.location.origin + '/join/' + data.roomId;
             this.setInputValue('inviteLink', 'menu', url);
         }.bind(this));
     }.bind(this);
 
     this.load = function(key) {
-        return window.localStorage.getItem(key);
+        var split = key.split('.');
+        var value = window.localStorage.getItem(split[0]);
+        if (split.length > 1) {
+            prev = JSON.parse(value);
+            for (var i = 1; i < split.length; i++) {
+                prev = prev[split[i]];
+            }
+            value = prev;
+        }
+        if (!value) return null;
+        else if (value.charAt(0) === '{') return JSON.parse(value);
+        else return value;
     };
 
     this.store = function(key, value) {
+        if (typeof value === 'object') value = JSON.stringify(value);
         window.localStorage.setItem(key, value);
     };
 };
@@ -90,7 +104,7 @@ window.init = function() {
         }, 500); // 500ms timeout so we can be sure the server has the corresponding listening callback defined at this point
 
         // set the name input value to the stored playerName to be extra user-friendly
-        var storedName = window.game.load('playerName');
+        var storedName = window.game.load('clientData.playerName');
         if (storedName) window.game.setInputValue('playerName', 'enter', storedName);
     });
 };

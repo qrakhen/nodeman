@@ -96,63 +96,76 @@ var SocketAction = function(subject, socket, receiver) {
 	return action;
 };
 
+Object.prototype.getData = function() {
+    var data = {};
+    for (key in this) {
+        // ignore all members that start with a double underline (pseudo-private members)
+        if (key.indexOf('__') === 0) continue;
+        var v = this[key];
+        if (typeof v === 'string' || typeof v === 'number') {
+            data[key] = v;
+        } else if (typeof v === 'object') {
+            data[key] = (v ? v.getData() : null);
+        }
+    }
+    return data;
+};
+
 function Client(socket) {
+    this.__socket = socket;
+    this.__token = md5(uuid());
     this.uuid = uuid();
-    this.token = md5(uuid());
-    this.socket = socket;
     this.actions = {};
     this.playerName = '';
     this.currentRoom = null;
     this.enteredAt = 0;
 	this.lastAction = 0;
 
-    this.socket.returnSuccess = function(e, data) {
+    this.returnSuccess = function(e, data) {
+        console.log('success: ' + e, data);
         this.emit(e, new Response(true, data));
-    };
+    }.bind(this.__socket);
 
-    this.socket.returnFailure = function(e, message) {
+    this.returnFailure = function(e, message) {
+        console.log('failure: ' + e, message);
         this.emit(e, new Response(false, message));
-    };
+    }.bind(this.__socket);
 
     this.registerActions = () => {
-        this.actions.revive = new SocketAction('revive', this.socket, (data) => {
+        this.actions.revive = new SocketAction('revive', this.__socket, (data) => {
             var token = data.token;
-            var __client = clients.findOne('token', token);
-            if (__client) {
-				if (now() - __client.lastAction < config.socket.keepAlive) {
-	                __client.socket = this.socket;
-	                this.socket = null;
+            var client = clients.findOne('__token', token);
+            if (client) {
+				if (now() - client.lastAction > config.socket.keepAlive) {
+	                client.__socket = this.__socket;
+	                this.__socket = null;
 	                clients.remove(this);
-	                __client.socket.returnSuccess('enter', {
-	                    playerName: __client.playerName,
-	                    enteredAt: __client.enteredAt,
-	                    uuid: __client.uuid,
-	                    token: __client.token
+	                client.returnSuccess('enter', {
+	                    clientData: client.getData(),
+	                    token: client.__token
 	                });
-				} else this.socket.returnFailure('revive', 'given socket died because to keep alive limit was passed')
-            } else this.socket.returnFailure('revive', 'no corresponding client found for given token');
+				} else this.returnFailure('revive', 'given socket died because to keep alive limit was passed')
+            } else this.returnFailure('revive', 'no corresponding client found for given token');
         });
-        this.actions.enter = new SocketAction('enter', this.socket, (data) => {
+        this.actions.enter = new SocketAction('enter', this.__socket, (data) => {
             var name = data.playerName;
             if (name && name.length > 0) {
                 this.playerName = name;
                 this.enteredAt = new Date().getTime();
                 console.log('player ' + name + ' just entered!');
-                this.socket.returnSuccess('enter', {
-                    playerName: this.playerName,
-                    enteredAt: this.enteredAt,
-                    uuid: this.uuid,
-                    token: this.token
+                this.returnSuccess('enter', {
+                    clientData: this.getData(),
+                    token: this.__token
                 });
-            } else this.socket.returnFailure('enter', 'invalid playerName provided');
+            } else this.returnFailure('enter', 'invalid playerName provided');
         });
-        this.actions.createRoom = new SocketAction('createRoom', this.socket, (data) => {
-            if (this.currentRoom !== null) return this.socket.returnFailure('createRoom', 'already in another room, leave first');
+        this.actions.createRoom = new SocketAction('createRoom', this.__socket, (data) => {
+            if (this.currentRoom !== null) return this.returnFailure('createRoom', 'already in another room, leave first');
             var roomId = '';
             var c = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' ];
             for (var i = 0; i < 8; i++) roomId += c[Math.floor(Math.random()*c.length)];
             console.log('new room ' + roomId + ' created!');
-            this.socket.returnSuccess('createRoom', { roomId: roomId });
+            this.returnSuccess('createRoom', { roomId: roomId });
         });
     };
 }

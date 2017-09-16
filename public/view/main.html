@@ -16,9 +16,10 @@
         <script type="text/javascript" src="/js/client.js"></script>
     </head>
     <body class="center grey lighten-4">
-        <header class="center grey darken-1">
-            <h4 class="grey-text text-lighten-3 depth-3">Nodeman.</h4>
+        <header class="center teal lighten-1 z-depth-2">
+            <h4 class="grey-text text-lighten-3">Nodeman.</h4>
         </header>
+
         <view name="enter" class="active">
             <div class="container">
                 <div class="container inner">
@@ -28,24 +29,39 @@
                 </div>
             </div>
         </view>
+
         <view name="menu">
             <div class="container">
                 <div class="container inner">
-                    <p>Hi, <v>playerName</v>!</p>
-                    <p>Create a new room and invite your group of friends, or ask them to send you an invite link.</p>
-                    <input class="submit btn action" action="createRoom" type="submit" value="Create Room">
+                    <div class="drawer">
+                        <p>Hi, <v>playerName</v>!</p>
+                        <p>Create a new room and invite your group of friends, or ask them to send you an invite link.</p>
+                        <input class="submit btn action" action="createRoom" type="submit" value="Create Room">
+                    </div>
                     <input readonly class="hidden centered center text" key="inviteLink" type="text" value="">
+                    <script>$('input[key="inviteLink"]').on('click', function(e) { e.target.select(); });</script>
                 </div>
             </div>
         </view>
+
         <view name="lobby">
             running game
         </view>
+
         <view name="game">
             running game
         </view>
-        <footer>
 
+        <footer class="teal lighten-1 z-depth-1">
+            <div class="container">
+                <div class="row">
+                    <div class="col s3">
+                        <p class="teal-text text-darken-4">Crafted by
+                            <a href="http://qrakhen.net/" target="_blank">Qrakhen.</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
         </footer>
     </body>
     <script>

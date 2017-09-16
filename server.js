@@ -361,6 +361,31 @@ function Client(socket) {
             this.disconnect();
         });
 
+        this.addAction('chat', (data) => {
+            var message = data.message;
+            if (!message || message.length < 1) return;
+            var target = data.target.split(':');
+            var id = (target.length == 1 ? target[0] : target[1]);
+            var type = 'player';
+            if (target.length > 1) type = target[0];
+
+            if (type === 'session') {
+                var session = sessions.findOne('id', id);
+                if (!session) return this.returnFailure('chat', 'session non-existent');
+                if (session.players.indexOf(this) < 0) {
+                    return this.returnFailure('chat', 'player not in target session');
+                } else {
+                    session.players.forEach((e) => {
+                        e.returnSuccess('chat', {
+                            type: type,
+                            from: this.playerName,
+                            message: message
+                        });
+                    });
+                }
+            }
+        });
+
         this.addAction('createSession', (data) => {
             if (this.sessionId) return this.returnFailure('createSession', 'already in another session, leave first');
             var length = 4;

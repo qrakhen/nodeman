@@ -66,6 +66,7 @@ function Game() {
     };
 
     this.registerEvents = function() {
+
         this.addAction('enter', function(data) {
             this.state = data.clientData;
             this.store('state', data.clientData);
@@ -79,10 +80,20 @@ function Game() {
             }
         }.bind(this));
 
-        this.addAction('joinSession', function(data) {
+        this.addAction('chat', function(data) {
+            var own = (data.from == this.state.playerName);
+            var html = '<p class="message' + (own ? ' own' : '') + '"><span class="from">' +
+                data.from + '</span><span class="content">' + data.message + '</span></p>';
+            if (data.type === 'session') {
+                $('#lobbyChat div.history').append(html);
+                $('#lobbyChat div.scroll').scrollTop(999999);
+            } else if (data.type === 'alert') {
+                // xD Trollolololololol
+                window.alert(data.message);
+            }
+        }.bind(this));
 
-        }.bind(this),
-        function(error) {
+        this.addAction('joinSession', function(data) {}, function(error) {
             window.location.pathname = '/';
             this.setView('menu');
         }.bind(this));
@@ -148,6 +159,20 @@ window.init = function() {
         // set the name input value to the stored playerName to be extra user-friendly
         var storedName = window.game.load('state.playerName');
         if (storedName) window.game.setInputValue('playerName', 'enter', storedName);
+    });
+
+    $('#lobbyChat').on('keypress', function(e) {
+        if ($('#lobbyChat input').val().length < 1) return;
+        var key = e.which || e.keyCode;
+        if (key === 13) {
+            if (window.game.state.session) {
+                window.game.actions.chat.trigger({
+                    target: 'session:' + window.game.state.session.id,
+                    message: $('#lobbyChat input').val()
+                });
+                $('#lobbyChat input').val('');
+            }
+        }
     });
 };
 

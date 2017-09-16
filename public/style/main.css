@@ -49,26 +49,70 @@ div.container p {
 }
 
 div.lobby div.chat {
-    min-height: 360px;
+    min-height: 420px;
+    max-height: 420px;
     position: relative;
+}
+
+div.lobby div.chat div.history {
+
+}
+
+div.lobby div.chat div.scroll {
+    min-height: 370px;
+    max-height: 370px;
+    margin: 0;
+    position: relative;
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+
+div.lobby div.chat p.message {
+    width: 100%;
+    text-align: left;
+    height: 24px;
+    line-height: 24px;
+    margin: 4px 0;
+}
+
+div.lobby div.chat p.message.own {
+    color: #12af8b;
+}
+
+div.lobby div.chat span.from {
+    width: 18%;
+    font-weight: bold;
+    text-align: left;
+    display: inline-block;
+    overflow: hidden;
+}
+
+div.lobby div.chat span.content {
+    width: 80%;
+    text-align: left;
+    display: inline-block;
+    overflow: hidden;
 }
 
 div.lobby input.message {
     position: absolute;
+    height: 50px;
     bottom: -4px;
     left: 12px;
-    width: 90%;
+    width: 96%;
     text-align: left;
 }
 
 div.playerList div.row.player {
     height: 36px;
     line-height: 36px;
+    font-weight: bold;
     margin-bottom: 4px;
+    cursor: pointer;
 }
 
 div.playerList div.row.player:hover {
-    background-color: #b2dfdb;
+    background-color: #92dfda !important;
 }
 
 div.playerList div.col {
@@ -77,7 +121,7 @@ div.playerList div.col {
 
 div.playerList img.avatar {
     height: 32px;
-    margin: 2px 16px 2px 2px;
+    margin: 2px 32px 2px 2px;
     float: left;
 }
 

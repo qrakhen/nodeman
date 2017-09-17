@@ -35,7 +35,22 @@ function Game() {
     this.setPlayerName = function() {
         var name = this.getInputValue('playerName', 'enter');
         if (name && name.length > 0) {
-            this.actions.enter.trigger({ playerName: name });
+            this.actions.enter.request(
+                { playerName: name }
+            ).success(function(data) {
+                this.state = data.clientData;
+                this.store('state', data.clientData);
+                this.store('authToken', data.token);
+                var path = window.location.pathname;
+                if (path.indexOf('join') > -1) {
+                    var id = /join\/([^\/]+)\/?/g.exec(path)[1];
+                    this.actions.joinSession.trigger({ id: id });
+                } else {
+                    this.setView('menu');
+                }
+            }.bind(this)).failure(function(message) {
+                alert(message);
+            });
         } else console.error('invalid name');
     }.bind(this);
 
@@ -68,16 +83,7 @@ function Game() {
     this.registerEvents = function() {
 
         this.addAction('enter', function(data) {
-            this.state = data.clientData;
-            this.store('state', data.clientData);
-            this.store('authToken', data.token);
-            var path = window.location.pathname;
-            if (path.indexOf('join') > -1) {
-                var id = /join\/([^\/]+)\/?/g.exec(path)[1];
-                this.actions.joinSession.trigger({ id: id });
-            } else {
-                this.setView('menu');
-            }
+
         }.bind(this));
 
         this.addAction('chat', function(data) {
@@ -187,15 +193,39 @@ window.SocketAction = function(subject, receiver, error) {
 	var action = {
 		subject: subject,
 		count: { in: 0, out: 0 },
+        pending: {},
 		trigger: function(data) {
 			console.log('SocketAction.trigger(' + subject + ')', data);
 			this.count.out++;
 			socket.emit(subject, data);
 		},
-		register: function(receiver) {
+        request: function(data) {
+			this.count.out++;
+            data.rqid = new Date().getTime();
+            var r = {
+                success: function(fn) {
+                    this.onSuccess = fn;
+                },
+                failure: function(fn) {
+                    this.onFailure = fn;
+                }
+            };
+            this.pending[data.rqid] = r;
+            socket.emit(subject, data);
+            console.log('SocketAction.request(' + subject + ')', data);
+            return r;
+        },
+		register: function(receiver, error) {
 			socket.on(subject, function(response) {
 				console.log('SocketAction.received(' + subject + ')', response);
 				this.count.in++;
+                if (response.rqid && this.pending[response.rqid]) {
+                    console.log('override: SocketAction.pending[' + response.rqid + ']', response);
+                    var rqcb = this.pending[response.rqid];
+                    if (rqcb.onSuccess) receiver = rqcb.onSuccess;
+                    if (rqcb.onFailure) error = rqcb.onFailure;
+                    delete this.pending[response.rqid];
+                }
 				if (response.success) receiver(response.data);
                 else {
                     Materialize.toast(this.subject + '.error: ' + response.message, 4200);

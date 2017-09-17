@@ -304,6 +304,14 @@ function Client(socket) {
 	this.lastAction = 0;
     this.ready = false;
 
+    this.response = function(name, success, rqid, data) {
+        if (this.__socket) this.__socket.emit(name, {
+            rqid: rqid,
+            success: success,
+            message: (typeof data === 'string' ? data : null),
+            data: (typeof data === 'object' ? data : {})});
+    }.bind(this);
+
     this.returnSuccess = function(e, data) {
         console.log('success: ' + e, data);
         if (this.__socket) this.__socket.emit(e, new Response(true, data));
@@ -350,11 +358,11 @@ function Client(socket) {
                 this.playerName = name;
                 this.enteredAt = new Date().getTime();
                 console.log('player ' + name + ' just entered!');
-                this.returnSuccess('enter', {
+                this.response('enter', true, data.rqid, {
                     clientData: this.getData(),
                     token: this.__token
                 });
-            } else this.returnFailure('enter', 'invalid playerName provided');
+            } else this.response('enter', false, data.rqid, 'invalid playerName provided');
         });
 
         this.addAction('logout', () => {

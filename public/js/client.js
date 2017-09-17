@@ -35,22 +35,23 @@ function Game() {
     this.setPlayerName = function() {
         var name = this.getInputValue('playerName', 'enter');
         if (name && name.length > 0) {
-            this.actions.enter.request(
-                { playerName: name }
-            ).success(function(data) {
-                this.state = data.clientData;
-                this.store('state', data.clientData);
-                this.store('authToken', data.token);
-                var path = window.location.pathname;
-                if (path.indexOf('join') > -1) {
-                    var id = /join\/([^\/]+)\/?/g.exec(path)[1];
-                    this.actions.joinSession.trigger({ id: id });
-                } else {
-                    this.setView('menu');
-                }
-            }.bind(this)).failure(function(message) {
-                alert(message);
-            });
+            new window.SocketRequest()
+                .send('enter', { playerName: name})
+                .success(function(data) {
+                    this.state = data.clientData;
+                    this.store('state', data.clientData);
+                    this.store('authToken', data.token);
+                    var path = window.location.pathname;
+                    if (path.indexOf('join') > -1) {
+                        var id = /join\/([^\/]+)\/?/g.exec(path)[1];
+                        this.actions.joinSession.trigger({ id: id });
+                    } else {
+                        this.setView('menu');
+                    }
+                }.bind(this))
+                .failure(function(message) {
+                    alert(message);
+                });
         } else console.error('invalid name');
     }.bind(this);
 
@@ -236,6 +237,44 @@ window.SocketAction = function(subject, receiver, error) {
 	};
 	action.register(receiver);
 	return action;
+};
+
+window.SocketRequest = function() {
+    this.pending = {};
+    this.send = function(subject, data) {
+        var rqid = new Date().getTime();
+        data.rqid = rqid;
+        window.socket.on(subject, function(data) {
+            if (data.rqid) return;
+            var provider  = this.pending[this.rqid];
+            if (!provider) return console.log(subject + ' responses without corresponding provider detected', data);
+            if (typeof provider.onReturned === 'function') provider.onReturned(data);
+            if (!data.success || data.success === true) {
+                if (typeof provider.onSuccess === 'function') provider.onSuccess(data);
+            } else {
+                if (typeof provider.onFailure === 'function') provider.onFailure(data);
+            }
+            delete this.pending[response.rqid];
+        }.bind(this));
+        var callbackProvider = {
+            done: function(fn) {
+                this.onReturned = fn;
+                return this;
+            },
+            success: function(fn) {
+                this.onSuccess = fn;
+                return this;
+            },
+            failure: function(fn) {
+                this.onFailure = fn;
+                return this;
+            }
+        };
+        this.pending[rqid] = callbackProvider;
+        window.socket.emit(subject, data);
+
+        return callbackProvider;
+    };
 };
 
 window.getObjectValue = function(object, query) {

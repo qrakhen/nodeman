@@ -305,7 +305,7 @@ function Client(socket) {
     this.ready = false;
 
     this.response = function(name, success, rqid, data) {
-        if (this.__socket) this.__socket.emit(name, {
+        if (this.__socket) this.__socket.emit('r_' + rqid, {
             rqid: rqid,
             success: success,
             message: (typeof data === 'string' ? data : null),

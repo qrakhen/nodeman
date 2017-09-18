@@ -244,7 +244,8 @@ window.SocketRequest = function() {
     this.send = function(subject, data) {
         var rqid = new Date().getTime();
         data.rqid = rqid;
-        window.socket.on(subject, function(data) {
+        window.socket.on('r_' + rqid, function(data) {
+            console.log(data);
             if (data.rqid) return;
             var provider  = this.pending[this.rqid];
             if (!provider) return console.log(subject + ' responses without corresponding provider detected', data);
